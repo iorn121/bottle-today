@@ -1,9 +1,5 @@
-from bottle import Bottle,route,run
+class lazy_attribute:
+    
 
-app=Bottle()
-
-@app.route('/hello')
-def hello():
-    return 'Hello world'
-
-run(app,host='localhost',port=8080,debug=True)
+class Glass:
+    
