@@ -1,1 +1,1 @@
-bottle==0.12.21
+waitress==2.1.2
