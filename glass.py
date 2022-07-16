@@ -17,14 +17,51 @@ import cgi
 #         start_response("200 OK",[("Content-Type", "text/plain; charset=utf-8")])
 #         return [b"foo"]
 
-def http404(env,start_response):
-    start_response("404 Not Found",[("Content-Type", "text/plain; charset=utf-8")])
-    return [b"404 Not Found"]
+# def http404(env,start_response):
+#     start_response("404 Not Found",[("Content-Type", "text/plain; charset=utf-8")])
+#     return [b"404 Not Found"]
     
     
-def http405(env,start_response):
-    start_response("405 Method Not Allowed",[("Content-Type", "text/plain; charset=utf-8")])
-    return [b"405 Method Not Allowed"]
+# def http405(env,start_response):
+#     start_response("405 Method Not Allowed",[("Content-Type", "text/plain; charset=utf-8")])
+#     return [b"405 Method Not Allowed"]
+
+
+class Response:
+    default_status=200
+    default_charset="utf-8"
+    default_content_type="text/html; charset=UTF-8"
+
+    def __init__(self,body="",status=200,headers=None,charset=None):
+        self._body=body
+        self.status=status or self.default_status
+        self.headers=Headers()
+        self.charset=charset or self.default_charset
+
+        if headers:
+            for name,value in headers.items():
+                self.headers.add_header(name,value)
+    
+    @property
+    def status_code(self):
+        return f"{self.status} {http_responses[self.status]}"
+
+    @property
+    def header_list(self):
+        if "Content-Type"not in self.headers:
+            self.headers.add_header("Content-Type",self.default_content_type)
+        return self.headers.items()
+    
+    @property
+    def body(self):
+        if isinstance(self._body,str):
+            return[self._body.encode(self.charset)]
+        return self._body
+class HTTPError(Response,Exception):
+    default_status=500
+
+    def __init__(self,body="",status=default_status,headers=None,charset="utf-8"):
+        super().__init__(body=body,status=status,headers=headers,charset=charset)
 
 class Router:
     def __init__(self):
@@ -39,16 +76,16 @@ class Router:
             "callback":callback
         })
     def match(self,method,path):
-        error_callback=http404
+        status=404
         for r in self.routes:
             matched=re.compile(r["path"]).match(path)
             if not matched:
                 continue
-            error_callback=http405
+            status=405
             url_vars=matched.groupdict()
             if r["method"]==method:
                 return r["callback"], url_vars
-        return error_callback,{}
+        return HTTPError(status=status,body=f"Not Found: {path}")
 
 
 class App:
@@ -112,33 +149,3 @@ class Request:
     def json(self):
         return json.loads(self._body)
 
-class Response:
-    default_status=200
-    default_charset="utf-8"
-    default_content_type="text/html; charset=UTF-8"
-
-    def __init__(self,body="",status=200,headers=None,charset=None):
-        self._body=body
-        self.status=status or self.default_status
-        self.headers=Headers()
-        self.charset=charset or self.default_charset
-
-        if headers:
-            for name,value in headers.items():
-                self.headers.add_header(name,value)
-    
-    @property
-    def status_code(self):
-        return f"{self.status} {http_responses[self.status]}"
-
-    @property
-    def header_list(self):
-        if "Content-Type"not in self.headers:
-            self.headers.add_header("Content-Type",self.default_content_type)
-        return self.headers.items()
-    
-    @property
-    def body(self):
-        if isinstance(self._body,str):
-            return[self._body.encode(self.charset)]
-        return self._body
