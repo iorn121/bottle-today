@@ -63,7 +63,9 @@ class App:
     def __call__(self,env,start_response):
         request=Request(env)
         callback,kwargs = self.router.match(request.method,request.path)
-        return callback(request,start_response,**kwargs)
+        response=callback(request,**kwargs)
+        start_response(response.status_code,response.header_list)
+        return response.body
     
     
     
