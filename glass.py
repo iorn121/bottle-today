@@ -1,19 +1,30 @@
 import re
+from http.client import responses as http_responses
+from wsgiref.headers import Headers
 import json
 from urllib.parse import parse_qs,urljoin
 import cgi
 # https://c-bata.link/webframework-in-python/
 
 
-def application(env,start_response):
-    path=env["PATH_INFO"]
-    if path=="/":
-        start_response("200 OK",[("Content-Type", "text/plain; charset=utf-8")])
-        return [b"Hello, world!"]
+# def application(env,start_response):
+#     path=env["PATH_INFO"]
+#     if path=="/":
+#         start_response("200 OK",[("Content-Type", "text/plain; charset=utf-8")])
+#         return [b"Hello, world!"]
 
-    elif path=="/foo":
-        start_response("200 OK",[("Content-Type", "text/plain; charset=utf-8")])
-        return [b"foo"]
+#     elif path=="/foo":
+#         start_response("200 OK",[("Content-Type", "text/plain; charset=utf-8")])
+#         return [b"foo"]
+
+def http404(env,start_response):
+    start_response("404 Not Found",[("Content-Type", "text/plain; charset=utf-8")])
+    return [b"404 Not Found"]
+    
+    
+def http405(env,start_response):
+    start_response("405 Method Not Allowed",[("Content-Type", "text/plain; charset=utf-8")])
+    return [b"405 Method Not Allowed"]
 
 class Router:
     def __init__(self):
@@ -21,6 +32,7 @@ class Router:
 
     def add(self,method,path,callback):
         self.routes.append({
+
             "method":method,
             "path":path,
             "path_compiled":re.compile(path),
@@ -38,15 +50,6 @@ class Router:
                 return r["callback"], url_vars
         return error_callback,{}
 
-
-def http404(env,start_response):
-    start_response("404 Not Found",[("Content-Type", "text/plain; charset=utf-8")])
-    return [b"404 Not Found"]
-    
-    
-def http405(env,start_response):
-    start_response("405 Method Not Allowed",[("Content-Type", "text/plain; charset=utf-8")])
-    return [b"405 Method Not Allowed"]
 
 class App:
     def __init__(self):
@@ -106,3 +109,34 @@ class Request:
     @property
     def json(self):
         return json.loads(self._body)
+
+class Response:
+    default_status=200
+    default_charset="utf-8"
+    default_content_type="text/html; charset=UTF-8"
+
+    def __init__(self,body="",status=200,headers=None,charset=None):
+        self._body=body
+        self.status=status or self.default_status
+        self.headers=Headers()
+        self.charset=charset or self.default_charset
+
+        if headers:
+            for name,value in headers.items():
+                self.headers.add_header(name,value)
+    
+    @property
+    def status_code(self):
+        return f"{self.status} {http_responses[self.status]}"
+
+    @property
+    def header_list(self):
+        if "Content-Type"not in self.headers:
+            self.headers.add_header("Content-Type",self.default_content_type)
+        return self.headers.items()
+    
+    @property
+    def body(self):
+        if isinstance(self._body,str):
+            return[self._body.encode(self.charset)]
+        return self._body
